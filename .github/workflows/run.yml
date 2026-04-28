@@ -1,13 +1,15 @@
 name: OCI Capacity Poller
 
 on:
-  schedule:
-    - cron: '*/5 * * * *'
   workflow_dispatch:
+
+permissions:
+  actions: write
 
 jobs:
   try-create-instance:
     runs-on: ubuntu-latest
+    timeout-minutes: 350
     steps:
       - uses: actions/checkout@v4
 
@@ -41,5 +43,27 @@ jobs:
       - name: Write private key
         run: echo "${{ secrets.OCI_PRIVATE_KEY }}" > ./private.pem
 
-      - name: Run
-        run: php index.php
+      - name: Run retry loop
+        run: |
+          ATTEMPT=0
+          while true; do
+            ATTEMPT=$((ATTEMPT + 1))
+            echo "[$(date '+%H:%M:%S')] Attempt $ATTEMPT"
+            OUTPUT=$(php index.php 2>&1)
+            echo "$OUTPUT"
+            if echo "$OUTPUT" | grep -q '"lifecycleState"'; then
+              echo "SUCCESS - instance created!"
+              exit 0
+            fi
+            sleep 60
+          done
+
+      - name: Re-trigger workflow
+        if: always()
+        run: |
+          curl -s -X POST \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/${{ github.repository }}/actions/workflows/run.yml/dispatches \
+            -d '{"ref":"main"}'
+          echo "Next run triggered."
