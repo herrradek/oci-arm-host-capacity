@@ -1,0 +1,45 @@
+name: OCI Capacity Poller
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+jobs:
+  try-create-instance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+
+      - name: Install dependencies
+        run: composer install --no-interaction
+
+      - name: Create .env
+        run: |
+          cat > .env <<EOF
+          OCI_REGION=${{ secrets.OCI_REGION }}
+          OCI_USER_ID=${{ secrets.OCI_USER_ID }}
+          OCI_TENANCY_ID=${{ secrets.OCI_TENANCY_ID }}
+          OCI_KEY_FINGERPRINT=${{ secrets.OCI_KEY_FINGERPRINT }}
+          OCI_PRIVATE_KEY_FILENAME=./private.pem
+          OCI_SUBNET_ID=${{ secrets.OCI_SUBNET_ID }}
+          OCI_IMAGE_ID=${{ secrets.OCI_IMAGE_ID }}
+          OCI_OCPUS=4
+          OCI_MEMORY_IN_GBS=24
+          OCI_SHAPE=VM.Standard.A1.Flex
+          OCI_MAX_INSTANCES=1
+          OCI_SSH_PUBLIC_KEY="${{ secrets.OCI_SSH_PUBLIC_KEY }}"
+          OCI_AVAILABILITY_DOMAIN=
+          CACHE_AVAILABILITY_DOMAINS=1
+          EOF
+
+      - name: Write private key
+        run: echo "${{ secrets.OCI_PRIVATE_KEY }}" > ./private.pem
+
+      - name: Run
+        run: php index.php
