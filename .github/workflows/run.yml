@@ -5,14 +5,17 @@ on:
     - cron: '0 * * * *'
   workflow_dispatch:
 
+concurrency:
+  group: oci-poller
+  cancel-in-progress: true
+
 permissions:
-  actions: write
   contents: read
 
 jobs:
   try-create-instance:
     runs-on: ubuntu-latest
-    timeout-minutes: 350
+    timeout-minutes: 70
     steps:
       - uses: actions/checkout@v4
 
@@ -41,6 +44,7 @@ jobs:
           OCI_SSH_PUBLIC_KEY="${{ secrets.OCI_SSH_PUBLIC_KEY }}"
           OCI_AVAILABILITY_DOMAIN=
           CACHE_AVAILABILITY_DOMAINS=1
+          TOO_MANY_REQUESTS_TIME_WAIT=600
           EOF
 
       - name: Write private key
@@ -60,4 +64,3 @@ jobs:
             fi
             sleep 300
           done
-
